@@ -1,10 +1,174 @@
-<!doctype html><html lang="pt"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{height:100%;margin:0}#hud{position:absolute;z-index:9999;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;font:600 14px sans-serif}.badge{background:#111;color:#fff;padding:9px 12px;border-radius:10px;box-shadow:0 2px 8px #0004}</style></head><body><div id="hud"><div id="mode" class="badge">Moto • Navegação</div><div id="speed" class="badge">0 km/h</div></div><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
-let map=L.map('map').setView([40.2,-8.42],12),user=null,route=null,steps=[],stepIndex=0,lastAnnounced=-1;
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
-function setUser(lat,lon,speed){if(user)user.setLatLng([lat,lon]);else user=L.marker([lat,lon]).addTo(map).bindPopup('A sua posição');document.getElementById('speed').innerText=Math.round(Math.max(0,(speed||0)*3.6))+' km/h';if(!route)map.setView([lat,lon],14);checkNavigation(lat,lon)}
-function setMode(m){document.getElementById('mode').innerText='Moto • '+(m==='curves'?'Mais curvas':m==='no_tolls'?'Sem portagens':'Navegação')}
-function distance(a,b){const R=6371000,p=Math.PI/180,dLat=(b[0]-a[0])*p,dLon=(b[1]-a[1])*p,x=Math.sin(dLat/2)**2+Math.cos(a[0]*p)*Math.cos(b[0]*p)*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
-function checkNavigation(lat,lon){if(!steps.length)return;while(stepIndex<steps.length){const s=steps[stepIndex],d=distance([lat,lon],s.location);if(d<55&&stepIndex!==lastAnnounced){lastAnnounced=stepIndex;window.AndroidVoice?.speak(s.instruction);stepIndex++}else break}}
-async function searchDestination(q){if(!user||!q.trim())return;try{const g=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pt&q='+encodeURIComponent(q)).then(r=>r.json());if(!g.length){window.AndroidVoice?.speak('Destino não encontrado.');return}const a=g[0],s=user.getLatLng(),u='https://router.project-osrm.org/route/v1/driving/'+s.lng+','+s.lat+';'+a.lon+','+a.lat+'?overview=full&geometries=geojson&steps=true',d=await fetch(u).then(r=>r.json());if(!d.routes?.length){window.AndroidVoice?.speak('Não foi possível calcular a rota.');return}if(route)map.removeLayer(route);route=L.geoJSON(d.routes[0].geometry,{style:{weight:6}}).addTo(map);map.fitBounds(route.getBounds(),{padding:[30,30]});steps=(d.routes[0].legs?.[0]?.steps||[]).map(x=>({location:[x.maneuver.location[1],x.maneuver.location[0]],instruction:instruction(x.maneuver,x.name,x.distance)})).filter(x=>x.instruction);stepIndex=0;lastAnnounced=-1;window.AndroidVoice?.speak('Rota calculada. '+Math.round(d.routes[0].distance/1000)+' quilómetros.')}catch(e){window.AndroidVoice?.speak('Erro ao calcular a rota.')}}
-function instruction(m,name,meters){const dist=meters<1000?Math.round(meters)+' metros':(meters/1000).toFixed(1)+' quilómetros',road=name?' para '+name:'';const type=m.type==='arrive'?'Chegou ao destino.':m.type==='depart'?'Siga em frente'+road+'.':m.modifier==='left'?'Vire à esquerda'+road+'.':m.modifier==='right'?'Vire à direita'+road+'.':m.modifier==='slight left'?'Mantenha-se à esquerda'+road+'.':m.modifier==='slight right'?'Mantenha-se à direita'+road+'.':'Continue'+road+'.';return m.type==='arrive'?type:type+' Em '+dist+'.'}
-</script></body></html>
+<!doctype html>
+<html lang="pt">
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body,#map{height:100%;margin:0}
+#hud{position:absolute;z-index:9999;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;font:600 14px sans-serif}
+.badge{background:#111;color:#fff;padding:9px 12px;border-radius:10px;box-shadow:0 2px 8px #0004}
+</style>
+</head>
+<body>
+<div id="hud"><div id="mode" class="badge">Moto • Navegação</div><div id="speed" class="badge">0 km/h</div></div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let map=L.map('map').setView([40.2,-8.42],12),
+user=null,route=null,steps=[],stepIndex=0,lastAnnounced=-1,currentMode='moto';
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19,attribution:'© OpenStreetMap contributors'
+}).addTo(map);
+
+function setUser(lat,lon,speed){
+  if(user)user.setLatLng([lat,lon]);
+  else user=L.marker([lat,lon]).addTo(map).bindPopup('A sua posição');
+  document.getElementById('speed').innerText=Math.round(Math.max(0,(speed||0)*3.6))+' km/h';
+  if(!route)map.setView([lat,lon],14);
+  checkNavigation(lat,lon);
+}
+
+function setMode(m){
+  currentMode=m||'moto';
+  document.getElementById('mode').innerText='Moto • '+
+    (currentMode==='curves'?'Mais curvas':currentMode==='no_tolls'?'Sem portagens':'Navegação');
+}
+
+function distance(a,b){
+  const R=6371000,p=Math.PI/180,dLat=(b[0]-a[0])*p,dLon=(b[1]-a[1])*p;
+  const x=Math.sin(dLat/2)**2+Math.cos(a[0]*p)*Math.cos(b[0]*p)*Math.sin(dLon/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+function bearing(a,b){
+  const p=Math.PI/180,lat1=a[0]*p,lat2=b[0]*p,dLon=(b[1]-a[1])*p;
+  return (Math.atan2(Math.sin(dLon)*Math.cos(lat2),Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon))/p+360)%360;
+}
+
+function angleDelta(a,b){
+  return Math.abs(((b-a+540)%360)-180);
+}
+
+function routeCurvatureScore(geometry){
+  const c=geometry?.coordinates||[];
+  if(c.length<3)return 0;
+  let score=0;
+  for(let i=2;i<c.length;i++){
+    const a=[c[i-2][1],c[i-2][0]],b=[c[i-1][1],c[i-1][0]],d=[c[i][1],c[i][0]];
+    const turn=angleDelta(bearing(a,b),bearing(b,d));
+    if(turn>=12)score+=turn;
+  }
+  return score;
+}
+
+function chooseRoute(routes){
+  if(!routes?.length)return null;
+  if(currentMode!=='curves')return routes[0];
+  const shortest=routes.reduce((best,r)=>r.distance<best.distance?r:best,routes[0]);
+  const maxDistance=shortest.distance*1.35;
+  const candidates=routes.filter(r=>r.distance<=maxDistance);
+  return candidates.reduce((best,r)=>routeCurvatureScore(r.geometry)>routeCurvatureScore(best.geometry)?r:best,candidates[0]||shortest);
+}
+
+function checkNavigation(lat,lon){
+  if(!steps.length)return;
+  while(stepIndex<steps.length){
+    const s=steps[stepIndex],d=distance([lat,lon],s.location);
+    if(d<55&&stepIndex!==lastAnnounced){
+      lastAnnounced=stepIndex;
+      window.AndroidVoice?.speak(s.instruction);
+      stepIndex++;
+    }else break;
+  }
+}
+
+async function searchDestination(q){
+  if(!user||!q.trim())return;
+  try{
+    const g=await fetch(
+      'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pt&q='+encodeURIComponent(q)
+    ).then(r=>r.json());
+
+    if(!g.length){
+      window.AndroidVoice?.speak('Destino não encontrado.');
+      return;
+    }
+
+    const a=g[0],s=user.getLatLng();
+    const params=new URLSearchParams({
+      overview:'full',
+      geometries:'geojson',
+      steps:'true',
+      alternatives:'true'
+    });
+
+    if(currentMode==='no_tolls')params.set('exclude','toll');
+
+    const u='https://router.project-osrm.org/route/v1/driving/'+
+      s.lng+','+s.lat+';'+a.lon+','+a.lat+'?'+params.toString();
+
+    const d=await fetch(u).then(async r=>{
+      const data=await r.json();
+      if(!r.ok||data.code!=='Ok')throw new Error(data.message||'Routing indisponível');
+      return data;
+    });
+
+    const selected=chooseRoute(d.routes);
+    if(!selected){
+      window.AndroidVoice?.speak('Não foi possível calcular a rota.');
+      return;
+    }
+
+    if(route)map.removeLayer(route);
+    route=L.geoJSON(selected.geometry,{style:{weight:6}}).addTo(map);
+    map.fitBounds(route.getBounds(),{padding:[30,30]});
+
+    steps=(selected.legs?.[0]?.steps||[])
+      .map(x=>({
+        location:[x.maneuver.location[1],x.maneuver.location[0]],
+        instruction:instruction(x.maneuver,x.name,x.distance)
+      }))
+      .filter(x=>x.instruction);
+
+    stepIndex=0;
+    lastAnnounced=-1;
+
+    const modeMessage=currentMode==='curves'
+      ?' Rota com preferência por mais curvas.'
+      :currentMode==='no_tolls'
+      ?' Rota com exclusão de portagens solicitada.'
+      :'';
+    window.AndroidVoice?.speak(
+      'Rota calculada. '+Math.round(selected.distance/1000)+' quilómetros.'+modeMessage
+    );
+  }catch(e){
+    window.AndroidVoice?.speak(
+      currentMode==='no_tolls'
+        ?'Não foi possível calcular uma rota sem portagens.'
+        :'Erro ao calcular a rota.'
+    );
+  }
+}
+
+function instruction(m,name,meters){
+  const dist=meters<1000?Math.round(meters)+' metros':(meters/1000).toFixed(1)+' quilómetros';
+  const road=name?' para '+name:'';
+  const type=m.type==='arrive'
+    ?'Chegou ao destino.'
+    :m.type==='depart'
+    ?'Siga em frente'+road+'.'
+    :m.modifier==='left'
+    ?'Vire à esquerda'+road+'.'
+    :m.modifier==='right'
+    ?'Vire à direita'+road+'.'
+    :m.modifier==='slight left'
+    ?'Mantenha-se à esquerda'+road+'.'
+    :m.modifier==='slight right'
+    ?'Mantenha-se à direita'+road+'.'
+    :'Continue'+road+'.';
+  return m.type==='arrive'?type:type+' Em '+dist+'.';
+}
+</script>
+</body>
+</html>
