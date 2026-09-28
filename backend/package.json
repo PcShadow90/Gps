@@ -1,0 +1,14 @@
+{
+  "name": "motogps-api",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vercel/node": "^5.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
