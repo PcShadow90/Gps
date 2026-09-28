@@ -1,11 +1,21 @@
-<div align="center">
+# MotoGPS
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Aplicação Android dedicada a motociclistas, com navegação GPS, rotas e modos específicos para condução de mota.
 
-  <h1>Built with AI Studio</h2>
+## Implementado
+- Android nativo em Kotlin + Jetpack Compose.
+- Localização GPS de alta precisão.
+- Mapa Leaflet/OpenStreetMap.
+- Pesquisa de destino.
+- Cálculo de rota OSRM.
+- Voz PT-PT.
+- Modos Moto, Curvas e Sem Portagens.
+- Base modular para comunidade, alertas, grupos, POI, offline e backend.
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Estrutura
+- `app/`: aplicação Android.
+- `app/src/main/assets/map.html`: mapa e motor inicial de rotas.
+- Backend/admin serão adicionados em fases seguintes sem alterar o núcleo Android.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
-
-</div>
+## Nota
+O projeto foi preparado automaticamente no repositório GitHub existente `PcShadow90/Gps`.
