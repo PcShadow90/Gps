@@ -1,0 +1,1 @@
+{"scripts":{"dev":"vercel dev","build":"tsc --noEmit"},"dependencies":{"@vercel/node":"latest"},"devDependencies":{"typescript":"latest"},"engines":{"node":">=20"}}
