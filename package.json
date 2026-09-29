@@ -1,7 +1,11 @@
 {
+  "name": "motogps",
+  "private": true,
+  "version": "0.1.0",
   "scripts": {
     "dev": "vercel dev",
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "check": "tsc --noEmit"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
