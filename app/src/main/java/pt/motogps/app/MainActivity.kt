@@ -215,8 +215,7 @@ class MainActivity : ComponentActivity() {
                 dismissButton = {
                     TextButton(onClick = {
                         showNavigationDisclosure = false
-                        startNavigationService()
-                        status = "Navegação ativa. O serviço pode ser parado no Gestor de tarefas do Android."
+                        requestNotificationAndStart(requestNotifications = false)
                     }) { Text("Sem notificações") }
                 }
             )
@@ -430,7 +429,7 @@ class MainActivity : ComponentActivity() {
         return Build.VERSION.SDK_INT < 28 || manager.isLocationEnabled
     }
 
-    private fun requestNotificationAndStart() {
+    private fun requestNotificationAndStart(requestNotifications: Boolean = true) {
         if (!hasLocationPermission()) {
             pendingStartNavigation = true
             locationPermission.launch(
@@ -449,7 +448,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        if (Build.VERSION.SDK_INT >= 33 &&
+        if (requestNotifications && Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.POST_NOTIFICATIONS
