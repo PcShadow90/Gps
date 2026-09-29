@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { geocode, route } from "../backend/src/routing";
-import type { Report, Poi, Group } from "../backend/src/models";
+import { geocode, route } from "../backend/src/routing.js";
+import type { Report, Poi, Group } from "../backend/src/models.js";
 
 const reports: Report[] = [];
 const pois: Poi[] = [];

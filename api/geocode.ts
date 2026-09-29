@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { setApiCors } from "../backend/src/cors";
-import { geocode } from "../backend/src/routing";
+import { setApiCors } from "../backend/src/cors.js";
+import { geocode } from "../backend/src/routing.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setApiCors(req, res);

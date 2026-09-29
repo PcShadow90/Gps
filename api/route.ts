@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { setApiCors } from "../backend/src/cors";
-import { route } from "../backend/src/routing";
-import type { RouteMode } from "../backend/src/routing";
+import { setApiCors } from "../backend/src/cors.js";
+import { route } from "../backend/src/routing.js";
+import type { RouteMode } from "../backend/src/routing.js";
 
 const ROUTE_MODES: RouteMode[] = ["moto", "curves", "no_tolls"];
 
