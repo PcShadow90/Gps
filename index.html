@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MotoGPS — Demo</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0b0d10;color:#f4f6f8}
+header{padding:14px 18px;background:#11151a;border-bottom:1px solid #242a31;display:flex;justify-content:space-between;align-items:center}
+.brand{font-weight:800;letter-spacing:.08em}.status{font-size:12px;color:#7ee787}
+main{height:calc(100vh - 57px);position:relative}#map{height:100%;width:100%}
+.panel{position:absolute;z-index:1000;top:14px;left:14px;width:min(360px,calc(100% - 28px));background:rgba(17,21,26,.96);padding:14px;border:1px solid #303740;border-radius:14px;box-shadow:0 12px 40px #0008}
+input,button,select{width:100%;padding:11px;border-radius:9px;border:1px solid #343b44;background:#171c22;color:#fff;margin-top:8px}
+button{cursor:pointer;font-weight:700}.primary{background:#e8a928;color:#111;border-color:#e8a928}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.info{font-size:12px;color:#aab3bd;margin-top:9px;line-height:1.45}
+.results{max-height:180px;overflow:auto;margin-top:7px}.result{padding:9px;border-top:1px solid #2a3037;cursor:pointer;font-size:13px}
+.bad{color:#ff7b72}.good{color:#7ee787}
+</style></head>
+<body>
+<header><div class="brand">MotoGPS</div><div id="api" class="status">A verificar API…</div></header>
+<main><div id="map"></div>
+<section class="panel">
+<strong>Navegação</strong>
+<input id="search" placeholder="Pesquisar destino em Portugal">
+<div id="results" class="results"></div>
+<select id="mode"><option value="moto">Moto</option><option value="curves">Curvas</option><option value="no_tolls">Sem portagens</option></select>
+<div class="row"><button id="locate">Minha localização</button><button id="route" class="primary">Calcular rota</button></div>
+<div id="info" class="info">Escolha um destino e permita a localização para testar a rota.</div>
+</section></main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map=L.map('map').setView([40.2033,-8.4103],11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+let me=null,dest=null,routeLayer=null,meMarker=null,destMarker=null;
+const info=document.getElementById('info'), results=document.getElementById('results');
+async function api(path){const r=await fetch(path);if(!r.ok)throw new Error(await r.text());return r.json()}
+api('/api/motogps?action=health').then(x=>{document.getElementById('api').textContent=x.ok?'API online':'API indisponível'}).catch(()=>{document.getElementById('api').textContent='API com erro';document.getElementById('api').className='status bad'});
+document.getElementById('search').addEventListener('input',async e=>{
+ const q=e.target.value.trim(); results.innerHTML=''; if(q.length<3)return;
+ try{const data=await api('/api/motogps?action=geocode&q='+encodeURIComponent(q));
+ data.forEach(p=>{const d=document.createElement('div');d.className='result';d.textContent=p.display_name;d.onclick=()=>{dest={lat:+p.lat,lon:+p.lon,name:p.display_name};document.getElementById('search').value=p.display_name;results.innerHTML='';destMarker?.remove();destMarker=L.marker([dest.lat,dest.lon]).addTo(map).bindPopup('Destino').openPopup();map.setView([dest.lat,dest.lon],13)}});if(!data.length)results.innerHTML='<div class="info">Sem resultados.</div>'}
+ catch(e){results.innerHTML='<div class="info bad">Erro na pesquisa.</div>'}
+});
+document.getElementById('locate').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{me={lat:p.coords.latitude,lon:p.coords.longitude};meMarker?.remove();meMarker=L.circleMarker([me.lat,me.lon],{radius:8}).addTo(map).bindPopup('A sua localização');map.setView([me.lat,me.lon],14);info.textContent='Localização obtida. Escolha um destino e calcule a rota.'},e=>info.textContent='Não foi possível obter a localização: '+e.message,{enableHighAccuracy:true});
+document.getElementById('route').onclick=async()=>{
+ if(!me||!dest){info.textContent='Defina a localização e o destino primeiro.';return}
+ try{info.textContent='A calcular rota…';const m=document.getElementById('mode').value;
+ const d=await api('/api/motogps?action=route&fromLat='+me.lat+'&fromLon='+me.lon+'&toLat='+dest.lat+'&toLon='+dest.lon+'&mode='+m);
+ routeLayer?.remove();routeLayer=L.geoJSON(d.routes[0].geometry,{style:{weight:6}}).addTo(map);map.fitBounds(routeLayer.getBounds(),{padding:[30,30]});
+ const km=(d.routes[0].distance/1000).toFixed(1),min=Math.round(d.routes[0].duration/60);
+ info.innerHTML='<span class="good">Rota calculada.</span> '+km+' km · '+min+' min · modo '+m+'.'
+ }catch(e){info.innerHTML='<span class="bad">Erro:</span> '+e.message}
+};
+</script></body></html>
