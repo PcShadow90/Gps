@@ -17,6 +17,12 @@ html,body,#map{height:100%;margin:0}
 let map=L.map('map').setView([40.2,-8.42],12),
 user=null,route=null,steps=[],stepIndex=0,lastAnnounced=-1,currentMode='moto',lastLocation=null;
 let lastReportedStatus='',lastSpokenStatus='';
+const apiBaseUrl=(window.AndroidNavigation&&window.AndroidNavigation.getApiBaseUrl
+  ?window.AndroidNavigation.getApiBaseUrl():"").replace(/\/+$/,"");
+
+function apiUrl(path){
+  return apiBaseUrl+path;
+}
 
 function reportStatus(message){
   if(message===lastReportedStatus)return;
@@ -118,10 +124,17 @@ async function searchDestination(q){
   if(!lastLocation){showLocationStatus('aguardando_localizacao');return;}
   reportStatus('A procurar o destino e a calcular uma rota…');
   try{
-    const g=await fetch(
-      'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pt&q='+encodeURIComponent(q),
-      {headers:{'Accept-Language':'pt-PT'}}
-    ).then(r=>r.json());
+    let g;
+    if(apiBaseUrl){
+      const response=await fetch(apiUrl('/api/geocode?q='+encodeURIComponent(q)));
+      if(!response.ok)throw new Error('Geocoding indisponível');
+      g=await response.json();
+    }else{
+      g=await fetch(
+        'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pt&q='+encodeURIComponent(q),
+        {headers:{'Accept-Language':'pt-PT'}}
+      ).then(r=>r.json());
+    }
 
     if(!g.length){
       showLocationStatus('destino_nao_encontrado');
@@ -129,19 +142,21 @@ async function searchDestination(q){
     }
 
     const a=g[0],s={lat:lastLocation[0],lng:lastLocation[1]};
-    const params=new URLSearchParams({
-      overview:'full',
-      geometries:'geojson',
-      steps:'true',
-      alternatives:'true'
-    });
+    let routeRequest;
+    if(apiBaseUrl){
+      routeRequest=apiUrl('/api/route?'+new URLSearchParams({
+        fromLat:String(s.lat),fromLon:String(s.lng),toLat:String(a.lat),toLon:String(a.lon),mode:currentMode
+      }).toString());
+    }else{
+      const fallbackParams=new URLSearchParams({
+        overview:'full',geometries:'geojson',steps:'true',alternatives:'true'
+      });
+      if(currentMode==='no_tolls')fallbackParams.set('exclude','toll');
+      routeRequest='https://router.project-osrm.org/route/v1/driving/'+
+        s.lng+','+s.lat+';'+a.lon+','+a.lat+'?'+fallbackParams.toString();
+    }
 
-    if(currentMode==='no_tolls')params.set('exclude','toll');
-
-    const u='https://router.project-osrm.org/route/v1/driving/'+
-      s.lng+','+s.lat+';'+a.lon+','+a.lat+'?'+params.toString();
-
-    const d=await fetch(u).then(async r=>{
+    const d=await fetch(routeRequest).then(async r=>{
       const data=await r.json();
       if(!r.ok||data.code!=='Ok')throw new Error(data.message||'Routing indisponível');
       return data;

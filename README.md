@@ -14,19 +14,18 @@ Aplicação Android dedicada a motociclistas, com navegação GPS, rotas e modos
 ## Estado e limites
 Esta versão é um protótipo funcional de navegação e ainda não está pronta para publicação. Os modos e as rotas dependem da cobertura e das capacidades do serviço OSRM público; não são garantia de rotas seguras ou adequadas a motociclos. A preferência por curvas é uma heurística aplicada às alternativas disponíveis.
 
-O Android ainda não usa o backend Vercel do repositório. O fluxo actual envia a pesquisa do destino ao Nominatim e as coordenadas de origem/destino ao OSRM. Não há autenticação, armazenamento persistente, alertas comunitários, grupos nem mapas offline implementados na app.
+O Android aceita a URL base da API Vercel através da propriedade Gradle `motogpsApiBaseUrl` ou da variável de ambiente `MOTOGPS_API_BASE_URL`. Quando a propriedade está vazia, o protótipo continua a chamar diretamente os serviços públicos Nominatim e OSRM. A app não deve usar a API Vercel enquanto a proteção por autenticação estiver activa, porque não pode concluir o início de sessão da equipa.
+
+Os endpoints da raiz do repositório são `/api/health`, `/api/geocode` e `/api/route`; o painel administrativo usa `/api/motogps`. Os dados de alertas, POIs e grupos ainda vivem apenas em memória. Não há autenticação de utilizadores nem armazenamento persistente, e os módulos de comunidade e mapas offline ainda não estão implementados na app.
 
 Antes de qualquer release, falta validar a experiência num telemóvel real (permissões, localização aproximada, ecrã bloqueado, perda de sinal, bateria e serviço de localização), rever o tratamento de privacidade dos fornecedores de mapas e concluir a integração de backend/persistência. Um APK de debug não é uma versão de publicação.
 
 ## Estrutura
 - `app/`: aplicação Android.
 - `app/src/main/assets/map.html`: mapa e motor inicial de rotas.
-- `backend/` e `api/`: fundação de API, ainda sem integração com o cliente Android nem armazenamento persistente.
+- `api/`: endpoints Vercel usados pelo painel e configuráveis no cliente Android.
+- `backend/`: lógica partilhada de geocoding/rotas, modelos, autenticação futura e esquema PostgreSQL/PostGIS.
 - `admin/`: base inicial do painel administrativo.
-
-## Nota
-O projeto foi preparado automaticamente no repositório GitHub existente `PcShadow90/Gps`.
-
 
 ## Fontes do projeto
 
@@ -36,8 +35,8 @@ O projeto foi preparado automaticamente no repositório GitHub existente `PcShad
 - [API](https://github.com/PcShadow90/Gps/tree/main/api) — endpoints do projeto.
 - [Aplicação Android](https://github.com/PcShadow90/Gps/tree/main/app) — código da app.
 - [Admin](https://github.com/PcShadow90/Gps/tree/main/admin) — base do painel administrativo.
-- [PR #1 — Foundation API Vercel](https://github.com/PcShadow90/Gps/pull/1) — health check, geocoding Nominatim, routing OSRM e verificação TypeScript.
-- [Branch `feat/backend-vercel-foundation`](https://github.com/PcShadow90/Gps/tree/feat/backend-vercel-foundation) — implementação inicial do backend.
+- [PR #1 — Foundation API Vercel](https://github.com/PcShadow90/Gps/pull/1) — fundação inicial da API.
+- [Branch `feat/navigation-flow-polish`](https://github.com/PcShadow90/Gps/tree/feat/navigation-flow-polish) — fluxo Android e alinhamento dos endpoints.
 
 ### Serviços e tecnologias
 - [Kotlin](https://kotlinlang.org/) — linguagem Android.
@@ -47,17 +46,30 @@ O projeto foi preparado automaticamente no repositório GitHub existente `PcShad
 - [Leaflet](https://leafletjs.com/) — mapa interativo.
 - [Nominatim](https://nominatim.org/) — geocoding.
 - [OSRM](https://project-osrm.org/) — cálculo de rotas.
-- [Vercel](https://vercel.com/) — infraestrutura/backend prevista.
+- [Projeto MotoGPS na Vercel](https://vercel.com/laser4yme-4404/gps) — projeto `gps`, ligado ao repositório GitHub.
 - [PostgreSQL](https://www.postgresql.org/) — base de dados prevista.
 - [PostGIS](https://postgis.net/) — extensão geoespacial prevista.
 
 ### Gestão e design
 - [Notion — Projeto MotoGPS](https://app.notion.com/p/3e9d5b586590814eab85e39412892e10?pvs=204) — gestão e documentação.
-- [Canva — Protótipo mobile MotoGPS](https://www.canva.com/d/ro7uVbJARQ0evta) — design/prototipagem.
-- Visualize — prototipagem referenciada na documentação; ligação ainda não disponível nesta integração.
+- [Canva — Protótipo mobile MotoGPS](https://www.canva.com/d/25Nd7i91p0ow9dD) — design/prototipagem.
+- [Canva — Revisão técnica MotoGPS](https://www.canva.com/d/RQxDuwX36Z6mfde) — auditoria técnica a atualizar com este estado.
+- Visualize — prototipagem referenciada na documentação; URL ainda não fornecido.
 
 ### Estado das integrações
-- Vercel: conta ligada, mas não existe atualmente um projeto MotoGPS configurado.
-- Canva: protótipo mobile MotoGPS localizado e confirmado.
-- GitHub: repositório principal confirmado como `PcShadow90/Gps`.
-- Notion: página principal do projeto confirmada.
+- GitHub: o repositório configurado é `PcShadow90/Gps`; `PcShadow/motogps` não existe nesta conta.
+- Vercel: projeto `gps` ligado ao GitHub. A pasta de saída configurada no painel era `public`, que não existe; a pasta publicada correcta é `admin/`.
+- API Vercel: o endpoint principal está protegido por autenticação Vercel. A integração da app só fica activa quando existir uma URL de produção acessível pelo dispositivo e esta for passada a `motogpsApiBaseUrl`/`MOTOGPS_API_BASE_URL`.
+- Canva: protótipo e relatório técnico localizados; a revisão técnica será actualizada após validação da prévia.
+- Notion: página principal do projecto confirmada e a actualizar com as configurações efectivamente verificadas.
+
+## Configurar o cliente Android com a API
+
+Depois de publicar um endpoint HTTPS acessível sem autenticação Vercel pelo dispositivo, defina a propriedade Gradle antes de gerar o APK:
+
+```powershell
+$env:MOTOGPS_API_BASE_URL = "https://<dominio-publico-da-api>"
+gradle assembleDebug
+```
+
+Também é possível usar `-PmotogpsApiBaseUrl=https://<dominio-publico-da-api>`. Não inclua tokens de bypass da Vercel na app Android: seriam extraíveis do APK. Se não definir a URL, o protótipo continua a usar directamente Nominatim e OSRM.

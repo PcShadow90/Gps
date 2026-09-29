@@ -390,6 +390,9 @@ class MainActivity : ComponentActivity() {
                         addJavascriptInterface(
                             object {
                                 @JavascriptInterface
+                                fun getApiBaseUrl(): String = BuildConfig.MOTOGPS_API_BASE_URL
+
+                                @JavascriptInterface
                                 fun updateStatus(message: String) {
                                     runOnUiThread { onUiStatusChange?.invoke(message) }
                                 }

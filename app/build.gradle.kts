@@ -4,6 +4,15 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val motoGpsApiBaseUrl = providers.gradleProperty("motogpsApiBaseUrl")
+    .orElse(providers.environmentVariable("MOTOGPS_API_BASE_URL"))
+    .orElse("")
+    .get()
+    .trim()
+    .trimEnd('/')
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+
 android {
     namespace = "pt.motogps.app"
     compileSdk = 36
@@ -14,6 +23,11 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
+        buildConfigField("String", "MOTOGPS_API_BASE_URL", "\"$motoGpsApiBaseUrl\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {

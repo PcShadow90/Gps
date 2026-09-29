@@ -14,12 +14,17 @@ export async function geocode(query: string) {
 export async function route(
   fromLat:number, fromLon:number, toLat:number, toLon:number, mode:RouteMode="moto"
 ) {
-  if (![fromLat,fromLon,toLat,toLon].every(Number.isFinite)) throw new Error("Coordenadas inválidas");
+  if (
+    ![fromLat,fromLon,toLat,toLon].every(Number.isFinite) ||
+    Math.abs(fromLat) > 90 || Math.abs(toLat) > 90 ||
+    Math.abs(fromLon) > 180 || Math.abs(toLon) > 180
+  ) throw new Error("Coordenadas inválidas");
   const url = new URL(`https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}`);
   url.searchParams.set("overview","full");
   url.searchParams.set("geometries","geojson");
   url.searchParams.set("steps","true");
   url.searchParams.set("alternatives","true");
+  if (mode === "no_tolls") url.searchParams.set("exclude", "toll");
   const r = await fetch(url);
   if (!r.ok) throw new Error("Routing indisponível");
   const data = await r.json();
