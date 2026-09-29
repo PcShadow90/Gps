@@ -21,9 +21,9 @@ Esta revisão foi feita sobre os ficheiros remotos do repositório e o estado di
 
 ## Achados prioritários
 
-### P0 — comportamento após recusa da permissão de notificações
+### P1 — transparência após recusa de notificações
 
-Em `MainActivity`, o callback de `POST_NOTIFICATIONS` inicia o serviço sempre que `pendingStartNavigation` está activo, sem consultar o resultado de concessão. No Android 13+, a recusa não impede necessariamente iniciar um foreground service, mas a notificação não aparece na gaveta normal. Para uma navegação que promete notificação persistente e controlo de paragem, a app deve tratar a recusa explicitamente: explicar a limitação, permitir ao utilizador decidir se continua e não apresentar a experiência como se a notificação estivesse visível. Validar também o canal de notificação desactivado nas definições do sistema.
+Em `MainActivity`, o callback de `POST_NOTIFICATIONS` inicia o serviço quando `pendingStartNavigation` está activo, mesmo após a recusa. Isto é permitido: Android 13+ não exige essa permissão para iniciar um foreground service; o aviso do serviço continua visível no Task Manager, mas não na gaveta de notificações. A app deve explicar esta diferença antes do pedido ou após a recusa e validar também o canal de notificação desligado nas definições. O código actual permite continuar a navegação; o ponto em falta é a transparência sobre onde o aviso persistente aparece.
 
 ### P1 — integridade GPS não equivale a anti-falsificação
 
@@ -47,7 +47,7 @@ Verificar, num deployment preview, os endpoints de health, geocoding e routing; 
 
 ## Plano antes de release
 
-1. Corrigir a decisão do callback de notificação e desenhar o fallback explícito quando notificações/canal estão desligados.
+1. Explicar o comportamento do foreground service quando notificações/canal estão desligados e testar o controlo de paragem no Task Manager.
 2. Testar em Android 13–16: permissão precisa/aproximada/negada, localização desligada, notificação permitida/negada, canal desligado, app em background, ecrã bloqueado, processo morto, reinício do serviço e acção “Parar”.
 3. Testar GPS em campo: primeiro fix, túneis/perda de sinal, precisão degradada, saltos, velocidade, bearing e consumo de bateria. Não aceitar apenas simulação/emulador como validação de navegação.
 4. Testar WebView com rede indisponível, falhas de tile/geocoding/routing, conteúdo externo inesperado, links e recriação/destruição da Activity.
@@ -57,12 +57,13 @@ Verificar, num deployment preview, os endpoints de health, geocoding e routing; 
 
 ## Decisão
 
-**Estado: não pronto para publicação.** A base contém melhorias reais para GPS e WebView e já existe deployment Vercel READY. Continuam por resolver/validar a recusa de notificações, comportamento em dispositivos reais, tratamento da incerteza da localização, revisão final da ponte WebView, endurecimento CI, validação funcional do backend e a documentação de privacidade/release.
+**Estado: não pronto para publicação.** A base contém melhorias reais para GPS e WebView e já existe deployment Vercel READY. Continuam por resolver/validar a comunicação sobre notificações, comportamento em dispositivos reais, tratamento da incerteza da localização, revisão final da ponte WebView, endurecimento CI, validação funcional do backend e a documentação de privacidade/release.
 
 ## Referências oficiais
 
 - [Pedido de actualizações de localização Android](https://developer.android.com/develop/sensors-and-location/location/request-updates)
 - [Foreground services de localização](https://developer.android.com/develop/background-work/services/foreground-services#location)
+- [Permissão de notificações e foreground services no Android 13+](https://developer.android.com/develop/ui/compose/notifications/notification-permission)
 - [Permissões de localização Android](https://developer.android.com/develop/sensors-and-location/location/permissions)
 - [Acesso a conteúdo local em WebView / WebViewAssetLoader](https://developer.android.com/develop/ui/views/layout/webapps/load-local-content)
 - [Segurança de WebView](https://developer.android.com/privacy-and-security/risks/webview-unsafe-file-inclusion)
