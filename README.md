@@ -2,20 +2,27 @@
 
 Aplicação Android dedicada a motociclistas, com navegação GPS, rotas e modos específicos para condução de mota.
 
-## Implementado
-- Android nativo em Kotlin + Jetpack Compose.
-- Localização GPS de alta precisão.
-- Mapa Leaflet/OpenStreetMap.
-- Pesquisa de destino.
-- Cálculo de rota OSRM.
-- Voz PT-PT.
-- Modos Moto, Curvas e Sem Portagens.
-- Base modular para comunidade, alertas, grupos, POI, offline e backend.
+## Protótipo Android disponível
+- App Android em Kotlin + Jetpack Compose, com mapa Leaflet/OpenStreetMap numa WebView local.
+- Pedido de localização precisa/aproximada com explicação antes da permissão e uma posição inicial para centrar o mapa.
+- Pesquisa de destinos em Portugal e cálculo de rotas através dos serviços públicos Nominatim e OSRM.
+- Orientações por voz PT-PT e atualização de posição/velocidade durante uma sessão de navegação.
+- Preferência por curvas entre as alternativas devolvidas pelo OSRM e pedido de exclusão de portagens quando suportado pelo fornecedor.
+- Serviço Android de localização em primeiro plano, com controlo para parar a navegação e informação sobre o efeito da recusa de notificações.
+- Estados de localização e de cálculo de rota apresentados no ecrã.
+
+## Estado e limites
+Esta versão é um protótipo funcional de navegação e ainda não está pronta para publicação. Os modos e as rotas dependem da cobertura e das capacidades do serviço OSRM público; não são garantia de rotas seguras ou adequadas a motociclos. A preferência por curvas é uma heurística aplicada às alternativas disponíveis.
+
+O Android ainda não usa o backend Vercel do repositório. O fluxo actual envia a pesquisa do destino ao Nominatim e as coordenadas de origem/destino ao OSRM. Não há autenticação, armazenamento persistente, alertas comunitários, grupos nem mapas offline implementados na app.
+
+Antes de qualquer release, falta validar a experiência num telemóvel real (permissões, localização aproximada, ecrã bloqueado, perda de sinal, bateria e serviço de localização), rever o tratamento de privacidade dos fornecedores de mapas e concluir a integração de backend/persistência. Um APK de debug não é uma versão de publicação.
 
 ## Estrutura
 - `app/`: aplicação Android.
 - `app/src/main/assets/map.html`: mapa e motor inicial de rotas.
-- Backend/admin serão adicionados em fases seguintes sem alterar o núcleo Android.
+- `backend/` e `api/`: fundação de API, ainda sem integração com o cliente Android nem armazenamento persistente.
+- `admin/`: base inicial do painel administrativo.
 
 ## Nota
 O projeto foi preparado automaticamente no repositório GitHub existente `PcShadow90/Gps`.

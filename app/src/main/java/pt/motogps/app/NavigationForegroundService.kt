@@ -25,7 +25,6 @@ import com.google.android.gms.location.Priority
 
 class NavigationForegroundService : Service() {
     companion object {
-        const val ACTION_REQUEST_LAST = "pt.motogps.app.REQUEST_LAST_LOCATION"
         const val ACTION_STOP = "pt.motogps.app.STOP_NAVIGATION"
         private const val CHANNEL_ID = "motogps_navigation"
         private const val NOTIFICATION_ID = 1001
@@ -62,10 +61,6 @@ class NavigationForegroundService : Service() {
                 return START_NOT_STICKY
             }
 
-            ACTION_REQUEST_LAST -> {
-                broadcastLocation(lastLocation)
-                return START_STICKY
-            }
         }
 
         startAsForegroundService()

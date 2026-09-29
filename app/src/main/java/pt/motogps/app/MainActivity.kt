@@ -22,6 +22,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
@@ -56,6 +58,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var tts: TextToSpeech
     private var voiceEnabled = true
     private var pendingStartNavigation = false
+    private var onUiStatusChange: ((String) -> Unit)? = null
+    private var onRouteReady: (() -> Unit)? = null
+    private var onNavigationChange: ((Boolean) -> Unit)? = null
 
     private val locationPermission = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -64,19 +69,28 @@ class MainActivity : ComponentActivity() {
             result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         if (granted) {
             requestInitialLocation()
+            onUiStatusChange?.invoke("Permissão concedida. A obter localização GPS…")
             if (pendingStartNavigation) requestNotificationAndStart()
         } else {
             pendingStartNavigation = false
+            onUiStatusChange?.invoke("A localização é necessária para calcular uma rota.")
             web?.evaluateJavascript("showLocationStatus('permissao_negada');", null)
         }
     }
 
     private val notificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) {
+    ) { granted ->
         if (pendingStartNavigation) {
             pendingStartNavigation = false
             startNavigationService()
+            if (!granted) {
+                onUiStatusChange?.invoke(
+                    "Navegação ativa. Sem notificações na gaveta; o serviço continua visível no Gestor de tarefas do Android."
+                )
+            } else {
+                onUiStatusChange?.invoke("Navegação GPS ativa.")
+            }
         }
     }
 
@@ -116,16 +130,6 @@ class MainActivity : ComponentActivity() {
 
         setContent { App() }
 
-        if (!hasLocationPermission()) {
-            locationPermission.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        } else {
-            requestInitialLocation()
-        }
     }
 
     override fun onStart() {
@@ -135,10 +139,6 @@ class MainActivity : ComponentActivity() {
             locationReceiver,
             IntentFilter(ACTION_LOCATION_UPDATED),
             ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-        sendBroadcast(
-            Intent(NavigationForegroundService.ACTION_REQUEST_LAST)
-                .setPackage(packageName)
         )
     }
 
@@ -154,8 +154,73 @@ class MainActivity : ComponentActivity() {
         var dest by remember { mutableStateOf("") }
         var mode by remember { mutableStateOf("Moto") }
         var voice by remember { mutableStateOf(true) }
+        var status by remember { mutableStateOf("A obter localização…") }
+        var showLocationDisclosure by remember { mutableStateOf(!hasLocationPermission()) }
+        var showNavigationDisclosure by remember { mutableStateOf(false) }
+        var navigationActive by remember { mutableStateOf(false) }
 
         voiceEnabled = voice
+        onUiStatusChange = { status = it }
+        onRouteReady = { showNavigationDisclosure = true }
+        onNavigationChange = { navigationActive = it }
+
+        if (showLocationDisclosure) {
+            AlertDialog(
+                onDismissRequest = { showLocationDisclosure = false },
+                title = { Text("Permitir localização") },
+                text = {
+                    Text(
+                        "O MotoGPS usa a sua localização precisa ou aproximada para mostrar a posição e calcular rotas. " +
+                            "Ao calcular uma rota, o destino e os pontos de origem e destino são enviados aos serviços de mapas Nominatim e OSRM. " +
+                            "A localização contínua só começa quando iniciar a navegação."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showLocationDisclosure = false
+                        locationPermission.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }) { Text("Continuar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showLocationDisclosure = false }) {
+                        Text("Agora não")
+                    }
+                }
+            )
+        }
+
+        if (showNavigationDisclosure) {
+            AlertDialog(
+                onDismissRequest = { showNavigationDisclosure = false },
+                title = { Text("Iniciar navegação") },
+                text = {
+                    Text(
+                        "A navegação usa a localização em segundo plano enquanto conduz. " +
+                            "A notificação persistente permite regressar à app e parar o serviço. " +
+                            "Se não autorizar notificações, o Android mostra o serviço no Gestor de tarefas. " +
+                            "A app não guarda o histórico da sua localização."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showNavigationDisclosure = false
+                        requestNotificationAndStart()
+                    }) { Text("Pedir autorização") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showNavigationDisclosure = false
+                        startNavigationService()
+                        status = "Navegação ativa. O serviço pode ser parado no Gestor de tarefas do Android."
+                    }) { Text("Sem notificações") }
+                }
+            )
+        }
 
         Column(Modifier.fillMaxSize()) {
             TopAppBar(title = { Text("MotoGPS") })
@@ -176,14 +241,18 @@ class MainActivity : ComponentActivity() {
 
                 Button(
                     onClick = {
-                        pendingStartNavigation = true
-                        requestNotificationAndStart()
-
-                        val safe = dest
-                            .replace("\\", "\\\\")
-                            .replace("'", "\\'")
+                        if (dest.isBlank()) {
+                            status = "Escreva um destino para calcular a rota."
+                            return@Button
+                        }
+                        if (!hasLocationPermission()) {
+                            showLocationDisclosure = true
+                            status = "Permita a localização para calcular uma rota."
+                            return@Button
+                        }
+                        status = "A calcular a rota…"
                         web?.evaluateJavascript(
-                            "searchDestination('" + safe + "');",
+                            "searchDestination(" + org.json.JSONObject.quote(dest.trim()) + ");",
                             null
                         )
                     }
@@ -195,7 +264,8 @@ class MainActivity : ComponentActivity() {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = 8.dp)
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 FilterChip(
@@ -228,6 +298,23 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
+            Text(
+                text = status,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.bodySmall
+            )
+            if (navigationActive) {
+                TextButton(
+                    onClick = {
+                        stopNavigationService()
+                        status = "Navegação GPS parada."
+                    },
+                    modifier = Modifier.padding(start = 8.dp)
+                ) { Text("Parar navegação") }
+            }
+
             AndroidView(
                 factory = { context ->
                     WebView(context).apply {
@@ -252,6 +339,22 @@ class MainActivity : ComponentActivity() {
                             .build()
 
                         webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView?,
+                                request: WebResourceRequest?
+                            ): Boolean {
+                                val uri = request?.url ?: return true
+                                // Keep the JavaScript bridge restricted to the bundled app document.
+                                return uri.scheme != "https" ||
+                                    uri.host != "appassets.androidplatform.net"
+                            }
+
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                if (url == "https://appassets.androidplatform.net/assets/map.html") {
+                                    requestInitialLocation()
+                                }
+                            }
+
                             override fun shouldInterceptRequest(
                                 view: WebView?,
                                 request: WebResourceRequest?
@@ -283,6 +386,24 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             "AndroidVoice"
+                        )
+
+                        addJavascriptInterface(
+                            object {
+                                @JavascriptInterface
+                                fun updateStatus(message: String) {
+                                    runOnUiThread { onUiStatusChange?.invoke(message) }
+                                }
+
+                                @JavascriptInterface
+                                fun routeReady() {
+                                    runOnUiThread {
+                                        onUiStatusChange?.invoke("Rota calculada. Reveja as instruções antes de iniciar.")
+                                        onRouteReady?.invoke()
+                                    }
+                                }
+                            },
+                            "AndroidNavigation"
                         )
 
                         loadUrl("https://appassets.androidplatform.net/assets/map.html")
@@ -323,6 +444,7 @@ class MainActivity : ComponentActivity() {
 
         if (!locationServicesEnabled()) {
             pendingStartNavigation = false
+            onUiStatusChange?.invoke("Ative os serviços de localização para iniciar a navegação.")
             startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
             return
         }
@@ -334,22 +456,37 @@ class MainActivity : ComponentActivity() {
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             pendingStartNavigation = true
+            onUiStatusChange?.invoke("A aguardar autorização de notificações…")
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             return
         }
 
         pendingStartNavigation = false
         startNavigationService()
+        onUiStatusChange?.invoke("Navegação GPS ativa.")
     }
 
     private fun startNavigationService() {
         val intent = Intent(this, NavigationForegroundService::class.java)
         ContextCompat.startForegroundService(this, intent)
+        onNavigationChange?.invoke(true)
+    }
+
+    private fun stopNavigationService() {
+        startService(
+            Intent(this, NavigationForegroundService::class.java)
+                .setAction(NavigationForegroundService.ACTION_STOP)
+        )
+        onNavigationChange?.invoke(false)
     }
 
     @SuppressLint("MissingPermission")
     private fun requestInitialLocation() {
-        if (!hasLocationPermission() || !locationServicesEnabled()) return
+        if (!hasLocationPermission()) return
+        if (!locationServicesEnabled()) {
+            onUiStatusChange?.invoke("Ative os serviços de localização para mostrar a sua posição.")
+            return
+        }
 
         val request = CurrentLocationRequest.Builder()
             .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
@@ -370,9 +507,14 @@ class MainActivity : ComponentActivity() {
                                 last.longitude,
                                 last.speed * 3.6f
                             )
+                        } else {
+                            onUiStatusChange?.invoke("À espera de uma posição GPS. Saia para uma zona com céu aberto e tente novamente.")
                         }
                     }
                 }
+            }
+            .addOnFailureListener {
+                onUiStatusChange?.invoke("Não foi possível obter a localização. Verifique as permissões e tente novamente.")
             }
     }
 
@@ -387,6 +529,9 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         if (::tts.isInitialized) tts.shutdown()
         web?.destroy()
+        onUiStatusChange = null
+        onRouteReady = null
+        onNavigationChange = null
         super.onDestroy()
     }
 }

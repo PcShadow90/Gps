@@ -16,6 +16,13 @@ html,body,#map{height:100%;margin:0}
 <script>
 let map=L.map('map').setView([40.2,-8.42],12),
 user=null,route=null,steps=[],stepIndex=0,lastAnnounced=-1,currentMode='moto',lastLocation=null;
+let lastReportedStatus='',lastSpokenStatus='';
+
+function reportStatus(message){
+  if(message===lastReportedStatus)return;
+  lastReportedStatus=message;
+  window.AndroidNavigation?.updateStatus(message);
+}
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
   maxZoom:19,attribution:'© OpenStreetMap contributors'
@@ -26,6 +33,8 @@ function setUser(lat,lon,speed){
   if(user)user.setLatLng([lat,lon]);
   else user=L.marker([lat,lon]).addTo(map).bindPopup('A sua posição');
   lastLocation=[lat,lon];
+  reportStatus('Localização GPS disponível.');
+  lastSpokenStatus='';
   document.getElementById('speed').innerText=Math.round(Math.max(0,(speed||0)))+' km/h';
   if(!route)map.setView([lat,lon],14);
   checkNavigation(lat,lon);
@@ -34,11 +43,20 @@ function setUser(lat,lon,speed){
 function showLocationStatus(status){
   const labels={
     permissao_negada:'Localização não autorizada.',
-    mock_location:'Localização simulada detectada. Navegação interrompida por segurança.',
-    low_accuracy:'Precisão GPS insuficiente. A aguardar uma posição melhor.'
+    mock_location:'Foi detetada uma posição marcada como simulada. Este sinal não comprova, por si só, a autenticidade do GPS.',
+    low_accuracy:'Precisão GPS insuficiente. À espera de uma posição melhor.',
+    aguardando_localizacao:'À espera de localização. Ative o GPS e permita o acesso à localização.',
+    destino_nao_encontrado:'Não foi encontrado um destino em Portugal com esse nome.',
+    servico_indisponivel:'O serviço de mapas está temporariamente indisponível. Tente novamente mais tarde.'
   };
   const text=labels[status];
-  if(text)window.AndroidVoice?.speak(text);
+  if(text){
+    reportStatus(text);
+    if(status!==lastSpokenStatus){
+      lastSpokenStatus=status;
+      window.AndroidVoice?.speak(text);
+    }
+  }
 }
 
 function setMode(m){
@@ -96,7 +114,9 @@ function checkNavigation(lat,lon){
 }
 
 async function searchDestination(q){
-  if(!lastLocation||!q.trim())return;
+  if(!q.trim())return;
+  if(!lastLocation){showLocationStatus('aguardando_localizacao');return;}
+  reportStatus('A procurar o destino e a calcular uma rota…');
   try{
     const g=await fetch(
       'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pt&q='+encodeURIComponent(q),
@@ -104,7 +124,7 @@ async function searchDestination(q){
     ).then(r=>r.json());
 
     if(!g.length){
-      window.AndroidVoice?.speak('Destino não encontrado.');
+      showLocationStatus('destino_nao_encontrado');
       return;
     }
 
@@ -129,7 +149,7 @@ async function searchDestination(q){
 
     const selected=chooseRoute(d.routes);
     if(!selected){
-      window.AndroidVoice?.speak('Não foi possível calcular a rota.');
+      showLocationStatus('servico_indisponivel');
       return;
     }
 
@@ -156,11 +176,13 @@ async function searchDestination(q){
     window.AndroidVoice?.speak(
       'Rota calculada. '+Math.round(selected.distance/1000)+' quilómetros.'+modeMessage
     );
+    window.AndroidNavigation?.routeReady();
   }catch(e){
+    reportStatus('Não foi possível obter uma rota. Verifique a ligação à Internet e tente novamente.');
     window.AndroidVoice?.speak(
       currentMode==='no_tolls'
         ?'Não foi possível calcular uma rota sem portagens.'
-        :'Erro ao calcular a rota.'
+        :'Não foi possível calcular a rota.'
     );
   }
 }
