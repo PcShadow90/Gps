@@ -1,6 +1,17 @@
 {
-  "scripts":{"dev":"vercel dev","build":"tsc --noEmit"},
-  "dependencies":{"@vercel/node":"latest"},
-  "devDependencies":{"@types/node":"latest","typescript":"latest"},
-  "engines":{"node":">=20"}
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vercel/node": "latest",
+    "@vercel/speed-insights": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "typescript": "latest"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }
