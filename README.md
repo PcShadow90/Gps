@@ -53,14 +53,14 @@ Antes de qualquer release, falta validar a experiência num telemóvel real (per
 ### Gestão e design
 - [Notion — Projeto MotoGPS](https://app.notion.com/p/3e9d5b586590814eab85e39412892e10?pvs=204) — gestão e documentação.
 - [Canva — Protótipo mobile MotoGPS](https://www.canva.com/d/25Nd7i91p0ow9dD) — design/prototipagem.
-- [Canva — Revisão técnica MotoGPS](https://www.canva.com/d/RQxDuwX36Z6mfde) — auditoria técnica a atualizar com este estado.
+- [Canva — Revisão técnica MotoGPS](https://www.canva.com/design/DAHWkEvLR3E/view) — auditoria técnica actualizada; abrir pelo endereço permanente do design e pedir acesso caso o Canva indique falta de permissões.
 - Visualize — prototipagem referenciada na documentação; URL ainda não fornecido.
 
 ### Estado das integrações
 - GitHub: o repositório configurado é `PcShadow90/Gps`; `PcShadow/motogps` não existe nesta conta.
-- Vercel: projeto `gps` ligado ao GitHub. A pasta de saída configurada no painel era `public`, que não existe; a pasta publicada correcta é `admin/`.
+- Vercel: projecto `gps` ligado ao GitHub; Output Directory alinhado para `admin/`. As prévias continuam protegidas por autenticação.
 - API Vercel: o endpoint principal está protegido por autenticação Vercel. A integração da app só fica activa quando existir uma URL de produção acessível pelo dispositivo e esta for passada a `motogpsApiBaseUrl`/`MOTOGPS_API_BASE_URL`.
-- Canva: protótipo e relatório técnico localizados; a revisão técnica será actualizada após validação da prévia.
+- Canva: protótipo confirmado e relatório técnico actualizado; a sessão actual do Canva não tem acesso ao design, pelo que o proprietário deve partilhá-lo com a conta utilizada.
 - Notion: página principal do projecto confirmada e a actualizar com as configurações efectivamente verificadas.
 
 ## Configurar o cliente Android com a API
