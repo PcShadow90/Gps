@@ -8,8 +8,6 @@ html,body,#map{height:100%;margin:0}
 #hud{position:absolute;z-index:9999;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;font:600 14px sans-serif}
 .badge{background:#111;color:#fff;padding:9px 12px;border-radius:10px;box-shadow:0 2px 8px #0004}
 </style>
-<script>window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments);};</script>
-<script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body>
 <div id="hud"><div id="mode" class="badge">Moto • Navegação</div><div id="speed" class="badge">0 km/h</div></div>
@@ -17,18 +15,30 @@ html,body,#map{height:100%;margin:0}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 let map=L.map('map').setView([40.2,-8.42],12),
-user=null,route=null,steps=[],stepIndex=0,lastAnnounced=-1,currentMode='moto';
+user=null,route=null,steps=[],stepIndex=0,lastAnnounced=-1,currentMode='moto',lastLocation=null;
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
   maxZoom:19,attribution:'© OpenStreetMap contributors'
 }).addTo(map);
 
 function setUser(lat,lon,speed){
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
   if(user)user.setLatLng([lat,lon]);
   else user=L.marker([lat,lon]).addTo(map).bindPopup('A sua posição');
-  document.getElementById('speed').innerText=Math.round(Math.max(0,(speed||0)*3.6))+' km/h';
+  lastLocation=[lat,lon];
+  document.getElementById('speed').innerText=Math.round(Math.max(0,(speed||0)))+' km/h';
   if(!route)map.setView([lat,lon],14);
   checkNavigation(lat,lon);
+}
+
+function showLocationStatus(status){
+  const labels={
+    permissao_negada:'Localização não autorizada.',
+    mock_location:'Localização simulada detectada. Navegação interrompida por segurança.',
+    low_accuracy:'Precisão GPS insuficiente. A aguardar uma posição melhor.'
+  };
+  const text=labels[status];
+  if(text)window.AndroidVoice?.speak(text);
 }
 
 function setMode(m){
@@ -86,10 +96,11 @@ function checkNavigation(lat,lon){
 }
 
 async function searchDestination(q){
-  if(!user||!q.trim())return;
+  if(!lastLocation||!q.trim())return;
   try{
     const g=await fetch(
-      'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pt&q='+encodeURIComponent(q)
+      'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pt&q='+encodeURIComponent(q),
+      {headers:{'Accept-Language':'pt-PT'}}
     ).then(r=>r.json());
 
     if(!g.length){
@@ -97,7 +108,7 @@ async function searchDestination(q){
       return;
     }
 
-    const a=g[0],s=user.getLatLng();
+    const a=g[0],s={lat:lastLocation[0],lng:lastLocation[1]};
     const params=new URLSearchParams({
       overview:'full',
       geometries:'geojson',
@@ -141,6 +152,7 @@ async function searchDestination(q){
       :currentMode==='no_tolls'
       ?' Rota com exclusão de portagens solicitada.'
       :'';
+
     window.AndroidVoice?.speak(
       'Rota calculada. '+Math.round(selected.distance/1000)+' quilómetros.'+modeMessage
     );
