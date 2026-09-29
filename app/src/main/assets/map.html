@@ -21,7 +21,7 @@ let lastReportedStatus='',lastSpokenStatus='';
 function reportStatus(message){
   if(message===lastReportedStatus)return;
   lastReportedStatus=message;
-  window.AndroidNavigation?.updateStatus(message);
+  if(window.AndroidNavigation)window.AndroidNavigation.updateStatus(message);
 }
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
@@ -54,7 +54,7 @@ function showLocationStatus(status){
     reportStatus(text);
     if(status!==lastSpokenStatus){
       lastSpokenStatus=status;
-      window.AndroidVoice?.speak(text);
+      if(window.AndroidVoice)window.AndroidVoice.speak(text);
     }
   }
 }
@@ -81,7 +81,7 @@ function angleDelta(a,b){
 }
 
 function routeCurvatureScore(geometry){
-  const c=geometry?.coordinates||[];
+  const c=(geometry&&geometry.coordinates)||[];
   if(c.length<3)return 0;
   let score=0;
   for(let i=2;i<c.length;i++){
@@ -93,7 +93,7 @@ function routeCurvatureScore(geometry){
 }
 
 function chooseRoute(routes){
-  if(!routes?.length)return null;
+  if(!routes||!routes.length)return null;
   if(currentMode!=='curves')return routes[0];
   const shortest=routes.reduce((best,r)=>r.distance<best.distance?r:best,routes[0]);
   const maxDistance=shortest.distance*1.35;
@@ -107,7 +107,7 @@ function checkNavigation(lat,lon){
     const s=steps[stepIndex],d=distance([lat,lon],s.location);
     if(d<55&&stepIndex!==lastAnnounced){
       lastAnnounced=stepIndex;
-      window.AndroidVoice?.speak(s.instruction);
+      if(window.AndroidVoice)window.AndroidVoice.speak(s.instruction);
       stepIndex++;
     }else break;
   }
@@ -157,7 +157,7 @@ async function searchDestination(q){
     route=L.geoJSON(selected.geometry,{style:{weight:6}}).addTo(map);
     map.fitBounds(route.getBounds(),{padding:[30,30]});
 
-    steps=(selected.legs?.[0]?.steps||[])
+    steps=((selected.legs&&selected.legs[0]&&selected.legs[0].steps)||[])
       .map(x=>({
         location:[x.maneuver.location[1],x.maneuver.location[0]],
         instruction:instruction(x.maneuver,x.name,x.distance)
@@ -173,13 +173,13 @@ async function searchDestination(q){
       ?' Rota com exclusão de portagens solicitada.'
       :'';
 
-    window.AndroidVoice?.speak(
+    if(window.AndroidVoice)window.AndroidVoice.speak(
       'Rota calculada. '+Math.round(selected.distance/1000)+' quilómetros.'+modeMessage
     );
-    window.AndroidNavigation?.routeReady();
+    if(window.AndroidNavigation)window.AndroidNavigation.routeReady();
   }catch(e){
     reportStatus('Não foi possível obter uma rota. Verifique a ligação à Internet e tente novamente.');
-    window.AndroidVoice?.speak(
+    if(window.AndroidVoice)window.AndroidVoice.speak(
       currentMode==='no_tolls'
         ?'Não foi possível calcular uma rota sem portagens.'
         :'Não foi possível calcular a rota.'
