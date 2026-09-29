@@ -7,5 +7,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["api/**/*.ts", "backend/**/*.ts"]
+  "include": ["api/**/*.ts", "backend/src/**/*.ts"]
 }
