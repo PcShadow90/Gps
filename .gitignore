@@ -1,0 +1,30 @@
+# Android / Gradle
+.gradle/
+build/
+**/build/
+local.properties
+*.iml
+.idea/
+.DS_Store
+captures/
+
+# Node
+node_modules/
+.npm/
+.pnpm-store/
+npm-debug.log*
+pnpm-debug.log*
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel/
+
+# Coverage / generated output
+coverage/
+dist/
+out/
+reports/
